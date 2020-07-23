@@ -72,3 +72,13 @@ def test_get_longest_chains_incomplete(storage, block, genesis):
     storage.add_block(block2)
     [storage.add_vote(v) for v in votes2]
     assert storage.get_longest_chains() == [[genesis]]
+
+
+def test_get_finalized_blocks(storage, genesis):
+    parent = genesis
+    for i in range(1, 10):
+        parent = Block('Node0', i, parent)
+        storage.delivered[hash(parent)] = parent
+
+    finalized = storage.get_finalized_blocks()
+    assert len(finalized) == 9

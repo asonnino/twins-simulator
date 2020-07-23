@@ -17,6 +17,8 @@ class Blockchain:
         self.voted = {n: defaultdict(int) for n in nodes}
         self.last_notarized = {n: (0, genesis) for n in nodes}
         self.last_voted = {n: genesis for n in nodes}
+        self.consecutive_rounds = {n: 1 for n in nodes}
+        self.finalized_height = {n: 0 for n in nodes}
 
     def clear(self):
         nodes = [k for k in self.last_notarized.keys()]
@@ -57,7 +59,6 @@ class Network:
                     can_vote = self.same_partition(leader, voter, partitions)
                     can_vote &= last_voted.round <= tail_block.round
                     can_vote &= last_voted.link == hash(tail_block)
-
                     if can_vote:
                         self.chain.last_voted[voter] = block
                         logging.debug(f'Node {voter} votes for {block}')
@@ -65,14 +66,26 @@ class Network:
                             if self.same_partition(node, voter, partitions):
                                 self.chain.voted[node][hash(block)] += 1
 
-
-                # Update notarized.
+                # Update notarized / finalized.
                 for voter in self.nodes:
                     if self.chain.voted[voter][hash(block)] >= self.quorum():
                         del self.chain.voted[hash(block)]
+
+                        last_h, last_b = self.chain.last_notarized[voter]
                         new_height = tail_height+1
                         self.chain.last_notarized[voter] = (new_height, block)
                         logging.debug(f'Node {voter} notarizes {block}')
+
+                        if last_b.round + 1 == block.round:
+                            self.chain.consecutive_rounds[voter] += 1
+                        else:
+                            self.chain.consecutive_rounds[voter] = 0
+
+                        if self.chain.consecutive_rounds[voter] == 3:
+                            self.chain.finalized_height[voter] = last_h
+                            logging.info(
+                                f'Node {voter} finalizes height {last_h}.'
+                            )
 
 
 if __name__ == '__main__':

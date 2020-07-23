@@ -109,3 +109,22 @@ class NodeStorage():
         else:
             chain += [block]
             return self._get_chain(self.delivered[block.link], chain)
+
+    def get_finalized_blocks(self):
+        chain = self.get_longest_chains()[0] # Select any chain
+        if len(chain) < 3:
+            return []
+
+        consecutives_rounds = 1
+        last_round = chain[0].round
+        for i, block in enumerate(chain[1:]):
+            if block.round + 1 == last_round:
+                consecutives_rounds += 1
+                last_round = block.round
+            else:
+                consecutives_rounds = 1
+
+            if consecutives_rounds == 3:
+                return chain[i:]
+
+        return []
