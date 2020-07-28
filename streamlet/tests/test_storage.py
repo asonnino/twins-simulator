@@ -79,6 +79,25 @@ def test_get_finalized_blocks(storage, genesis):
     for i in range(1, 10):
         parent = Block('Node0', i, parent)
         storage.delivered[hash(parent)] = parent
+    assert len(storage.get_finalized_blocks()) == 9
 
-    finalized = storage.get_finalized_blocks()
-    assert len(finalized) == 9
+
+def test_get_finalized_blocks_empty(storage):
+    assert not storage.get_finalized_blocks()
+
+
+def test_get_finalized_blocks_no_chain(storage, genesis):
+    parent = genesis
+    for i in range(1, 4):
+        parent = Block('Node0', 2*i, parent)
+        storage.delivered[hash(parent)] = parent
+    assert len(storage.get_finalized_blocks()) == 0
+
+def test_get_finalized_blocks_broken_chain(storage, genesis):
+    block1 = Block('Node0', 1, genesis)
+    storage.delivered[hash(block1)] = block1
+    block2 = Block('Node0', 2, block1)
+    storage.delivered[hash(block2)] = block2
+    block4 = Block('Node0', 4, block2)
+    storage.delivered[hash(block4)] = block4
+    assert len(storage.get_finalized_blocks()) == 0
