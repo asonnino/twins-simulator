@@ -1,5 +1,5 @@
 from sim.network import BColors
-from fhs.messages import Block, Vote
+from fhs.messages import Block, Vote, NewView, QC, AggQC
 
 from collections import defaultdict
 
@@ -8,123 +8,51 @@ class NodeStorage():
     """ The node storage instance. """
 
     def __init__(self, node):
-        """ Initialize the storage.
-
-        Args:
-            node (Node): The node.
-        """
         self.node = node
-        self.pending = dict()
+        genesis = NodeStorage.make_genesis(self.node.network)
+        b0, _, b1, _, b2, _ = genesis
+        self.blocks = {x.digest(): x for x in [b0, b1, b2]}
+        self.committed = []
         self.votes = defaultdict(set)
-        genesis = NodeStorage.make_genesis()
-        self.delivered = {hash(genesis): genesis}
-
+        self.new_views = {}
+        
     def __repr__(self):
         return (
-            f'Storage content ({self.node} at round {self.node.round}):\n'
-            f'\tPending({len(self.pending)}): {self.pending}\n'
-            f'\tDelivered({len(self.delivered)}): {self.delivered}\n'
+            f'Storage content ({self.node} at round {self.node.view}):\n'
+            f'\tBlocks({len(self.blocks)}): {self.blocks}\n'
             f'\tVotes({len(self.votes)}): {self.votes}\n'
-            f'\tLongest Chain(s): {self.get_longest_chains()}\n'
+            f'\tNewViews({len(self.new_views)}): {self.new_views}\n'
         )
 
     @staticmethod
-    def make_genesis():
-        """ Make genesis blocks.
-
-        Returns:
-            QC: A genesis qc.
-        """
-        return QC('Genesis', 0, {})
-
-    def contains(self, block):
-        """ Check if we already have a block for this (leader, round) label.
-
-        Args:
-            block (Block): The block to check.
-
-        Returns:
-            bool: Whether this (leader, round) label is new.
-        """
-        storage = {**self.delivered, **self.pending}
-        for b in storage.values():
-            if block.round == b.round and block.author == b.author:
-                return True
-        return False
+    def make_genesis(network):
+        b0 = Block('Genesis', 0, None)
+        qc0 = QC({Vote(b0.digest(), x) for x in network.nodes.keys()})
+        b1 = Block(qc0, 1, None)
+        qc1 = QC({Vote(b1.digest(), x) for x in network.nodes.keys()})
+        b2 = Block(qc1, 2, None)
+        qc2 = QC({Vote(b2.digest(), x) for x in network.nodes.keys()})
+        return b0, qc0, b1, qc1, b2, qc2
 
     def add_block(self, block):
-        """ Add valid block to the storage and try to deliver the voted block.
+        self.blocks[block.digest()] = block
 
-        Note that votes may arrive before the block.
+    def add_vote(self, message):
+        if isinstance(message, Vote):
+            digest = message.block_hash
+            votes = self._can_make_qc(self.votes, digest, message)
+            return QC(votes) if votes is not None else None
 
-        Args:
-            block (Block): A block.
-        """
-        digest = hash(block)
-        self.pending[digest] = block
-        self._try_deliver(digest)
+        elif isinstance(message, NewView):
+            round = message.round
+            new_views = self._can_make_qc(self.new_views, round, message)
+            return AggQC(new_views) if new_views is not None else None
 
-    def add_vote(self, vote):
-        """ Add valid vote to the storage and try to deliver the voted block.
-
-        Args:
-            block (Vote): A vote.
-        """
-        digest = vote.hash
-        self.votes[digest].add(vote)
-        self._try_deliver(digest)
-
-    def _try_deliver(self, digest):
-        if len(self.votes[digest]) >= self.node.network.quorum:
-            if digest in self.pending:
-                block = self.pending.pop(digest)
-                self.delivered[digest] = block
-                self.node.log(f'Delivered block: {block}', color=BColors.OK)
-
-    def get_longest_chains(self):
-        """ Inefficient way to find the longest chain(s).
-
-        The chains are ordered, the tail is in position 0, and the genesis
-        in position [-1].
-
-        Returns:
-            list: The longest chain(s).
-        """
-        longests = [[]]
-        for block in self.delivered.values():
-            chain = self._get_chain(block, [])
-            if len(chain) == len(longests[0]):
-                longests.append(chain)
-            elif len(chain) > len(longests[0]):
-                longests.clear()
-                longests.append(chain)
-        assert len(longests) > 0 and len(longests[0]) > 0
-        return longests
-
-    def _get_chain(self, block, chain):
-        if block.link == 0:  # We reached the genesis
-            return chain + [block]
-        elif block.link not in self.delivered:  # Incomplete chain, discard
-            return []
         else:
-            chain += [block]
-            return self._get_chain(self.delivered[block.link], chain)
-
-    def get_finalized_blocks(self):
-        chain = self.get_longest_chains()[0] # Select any chain
-        if len(chain) < 3:
-            return []
-
-        consecutives_rounds = 1
-        last_round = chain[0].round
-        for i, block in enumerate(chain[1:]):
-            if block.round + 1 == last_round:
-                consecutives_rounds += 1
-                last_round = block.round
-            else:
-                consecutives_rounds = 1
-
-            if consecutives_rounds == 3:
-                return chain[i:]
-
-        return []
+            assert False  # pragma: no cover
+        
+    def _can_make_qc(self, collection, key, value):
+        before = len(collection[key]) >= self.node.network.quorum
+        collection[key].add(value)
+        after = len(collection[key]) >= self.node.network.quorum
+        return collection[key] if (after and not before) else None

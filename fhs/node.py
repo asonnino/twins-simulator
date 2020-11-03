@@ -1,61 +1,87 @@
-from sim.node import Node, Logger
-from fhs.messages import Message, Block, Vote
+from sim.node import Node
+from sim.network import BColors
+from fhs.messages import Message, Block, GenericVote, Vote, NewView
 from fhs.storage import NodeStorage
 
+# TODO: Fix nodes to use indeces instead of names.
+# And rename index -> name.
 
 class FHSNode(Node):
     def __init__(self, index, network):
         super().__init__(index, network)
-        self.storage = NodeStorage(self)
-        self.view = 0
+        self.round = 2
+
+        # Global store simulating sync requests.
+        self.storage = NodeStorage(self)  
+        
+        self.last_voted_round = 2
+        self.preferred_round = 1
+
+        qc2 = NodeStorage.make_genesis(network)[-1]
+        self.highest_qc, self.highest_qc_round = qc2, 2
 
     def receive(self, message):
-        """ Process received message.
+        if not isinstance(message, Message):
+            assert False  # pragma: no cover
 
-        Args:
-            message (Message): The incoming message
-        """
-        if isinstance(message, Message) and message.verify(self.network):
+        if not message.verify(self.network):
+            self.log(
+                f'Received invalid message: {message}', 
+                color=BColors.WARNING
+            )
+            return
 
-            # Handle incoming blocks.
-            if isinstance(message, Block):
-                if not self.storage.contains(message):
+        # Handle incoming blocks.
+        if isinstance(message, Block):
+            self.storage.add_block(message)
 
-                    # 1. Add it to storage.
-                    self.storage.add_block(message)
+            b2 = message.qc.block(self.storage)
+            b1 = b2.qc.block(self.storage)
+            b0 = b1.qc.block(self.storage)
 
-                    # 2. Decide whether to vote on the block.
-                    if self._can_vote(message):
-                        vote = Vote(hash(message), self.view, self.index)
-                        self.network.send(self, message.author, vote)
+            # Update the current round.
+            self.round = max(self.round, b2.round+1)
 
-            # Handle incoming votes.
-            elif isinstance(message, Vote):
-                if not message.hash in self.storage.votes:
-                    self.network.broadcast(self, message)
-                self.storage.add_vote(message)
+            # Update the preferred round.
+            self.preferred_round = max(self.preferred_round, b1.round)
+            
+            # Update the highest QC.
+            if b2.round > self.highest_qc_round:
+                self.highest_qc = message.qc
+                self.highest_qc_round = b2.round
 
-            else:
-                assert False  # pragma: no cover
+            # Update the committed sequence.
+            check = b1.round == b0.round + 1
+            check &= b2.round == b1.round + 1
+            if check:
+                self.storage.committed += [b0]
+
+            # Check if we can vote for the new block.
+            check = message.author in self.le.get_leader()
+            check &= message.round > self.last_voted_round
+            check &= b2.round >= self.preferred_round
+            if check:
+                self.last_voted_round = message.round
+                vote = Vote(message.digest(), self.index)
+                next_leader_idx = self.le.get_leader(round=self.round+1)
+                next_leader = self.network.nodes[next_leader_idx]
+                self.network.send(self, next_leader, vote)
+
+        # Handle incoming votes and new view messages.
+        elif isinstance(message, GenericVote):
+            qc = self.storage.add_vote(message)
+            if qc is not None:
+                block = Block(qc, self.round+1, self.index)
+                self.network.broadcast(self, block)
 
         else:
             assert False  # pragma: no cover
 
     def send(self):
+        if self.index in self.le.get_leader():
+            block = Block(self.highest_qc, self.round+1, self.index)
+            self.network.broadcast(self, block)
+
         while True:
-            self.round += 1
-            self.log(f'Move to round {self.round}.')
-
-            if self.index in self.le.get_leader():
-                self.log('I am the leader.')
-                chain = self.storage.get_longest_chains()[0]
-                tip = chain[0]
-                block = Block(self.name, self.round, tip)
-                self.log(f'Broadcasting new block: {block}')
-                self.network.broadcast(self, block)
-
+            # TODO: send NewView message upon timeout.
             yield self.network.env.timeout(10)
-
-
-    def _can_vote(self, block):
-        return True # TODO
