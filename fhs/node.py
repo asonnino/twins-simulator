@@ -5,23 +5,23 @@ from fhs.storage import NodeStorage, SyncStorage
 
 
 class FHSNode(Node):
-    DELAY = 10  # Max delay before timeout.
+    DELAY = 15  # Max delay before timeout.
 
     def __init__(self, name, network, sync_storage):
         super().__init__(name, network)
         self.timeout = self.DELAY
-        self.round = 2
+        self.round = 3
         self.last_voted_round = 2
         self.preferred_round = 1
 
-        qc2 = SyncStorage.make_genesis(network)[-1]
+        qc2 = SyncStorage.make_genesis()[-1]
         self.highest_qc, self.highest_qc_round = qc2, 2
 
         # Block store (global for all nodes).
         self.sync_storage = sync_storage
 
         # Node store (each node has its own).
-        self.node_storage = NodeStorage(self)
+        self.storage = NodeStorage(self)
 
     def receive(self, message):
         """ Handles incoming messages. """
@@ -42,58 +42,61 @@ class FHSNode(Node):
         # The qc can be an instance of either QC or AggQC.
         if isinstance(message, Block):
             self.sync_storage.add_block(message)
-
-            # Get the 3 ancestors of the block as follows:
-            # b0 <- b1 <- b2 <- message
-            b2 = message.qc.block(self.storage)
-            b1 = b2.qc.block(self.storage)
-            b0 = b1.qc.block(self.storage)
-
-            # Update the current round.
-            self.round = max(self.round, b2.round+1)
-
-            # Update the preferred round.
-            self.preferred_round = max(self.preferred_round, b1.round)
-
-            # Update the highest QC.
-            if b2.round > self.highest_qc_round:
-                self.highest_qc = message.qc
-                self.highest_qc_round = b2.round
-
-            # Update the committed sequence.
-            check = b1.round == b0.round + 1
-            check &= b2.round == b1.round + 1
-            if check:
-                self.node_storage.committed += [b0]
+            self._process_qc(message.qc)
+            prev_block = message.qc.block(self.sync_storage)
 
             # Check if we can vote for the new block.
             check = message.author in self.le.get_leader()
             check &= message.round > self.last_voted_round
-            check &= b2.round >= self.preferred_round
+            check &= prev_block.round >= self.preferred_round
             if check:
                 self.timeout = self.DELAY
                 self.last_voted_round = message.round
+                self.round = max(self.round, message.round+1)
                 vote = Vote(message.digest(), self.name)
-                next_leader_idx = self.le.get_leader(round=self.round+1)
-                next_leader = self.network.nodes[next_leader_idx]
-                self.network.send(self, next_leader, vote)
+                indeces = self.le.get_leader()
+                next_leaders = [self.network.nodes[x] for x in indeces]
+                self.log(f'Sending vote {vote} to {next_leaders}')
+                [self.network.send(self, x, vote) for x in next_leaders]
 
         # Handle incoming votes and new view messages.
         elif isinstance(message, GenericVote):
-            qc = self.node_storage.add_vote(message)
+            qc = self.storage.add_vote(message)
             if qc is not None:
-                block = Block(qc, self.round+1, self.name)
+                self._process_qc(qc)
+                block = Block(qc, self.round, self.name)
                 self.network.broadcast(self, block)
 
         else:
             assert False  # pragma: no cover
+
+    def _process_qc(self, qc):
+        # Get the 2 ancestors of the block as follows:
+        # b0 <- b1 <- message
+        b1 = qc.block(self.sync_storage)
+        b0 = b1.qc.block(self.sync_storage)
+
+        # Update the preferred round.
+        self.preferred_round = max(self.preferred_round, b1.round)
+
+        # Update the highest QC.
+        if b1.round > self.highest_qc_round:
+            self.highest_qc = qc
+            self.highest_qc_round = b1.round
+
+        # Update the committed sequence.
+        if b1.round == b0.round + 1:
+            self.storage.commit(b0)
+            self.log(f'Committing {b0}', color=BColors.OK)
+
+        self.log(f'Received QC {qc}', color=BColors.OK)
 
     def send(self):
         """ Main loop triggering timeouts. """
 
         # Send the very first block.
         if self.name in self.le.get_leader():
-            block = Block(self.highest_qc, self.round+1, self.name)
+            block = Block(self.highest_qc, self.round, self.name)
             self.network.broadcast(self, block)
 
         # Trigger timeouts when necessary.
@@ -101,8 +104,13 @@ class FHSNode(Node):
             yield self.network.env.timeout(1)
             self.timeout -= 1
             if self.timeout == 0:
+                self.log(
+                    f'Timing out! (round {self.round})', color=BColors.WARNING
+                )
+                self.round += 1
                 self.timeout = self.DELAY
                 vote = NewView(self.highest_qc, self.round, self.name)
-                next_leader_idx = self.le.get_leader(round=self.round+1)
-                next_leader = self.network.nodes[next_leader_idx]
-                self.network.send(self, next_leader, vote)
+                indeces = self.le.get_leader()
+                next_leaders = [self.network.nodes[x] for x in indeces]
+                [self.network.send(self, x, vote) for x in next_leaders]
+                self.log(f'Sending new view {vote} to {next_leaders}')

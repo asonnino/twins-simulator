@@ -15,16 +15,15 @@ class Block(Message):
     def verify(self, network):
         check = self.signature
         check &= self.author in network.nodes.keys()
-        check &= self.qc.verify()
+        check &= self.qc.verify(network)
         return check
 
     def __repr__(self):
-        data = str(self.payload)
-        data = data if len(data) < 3 else f'{data[:1]}..'
-        return f'BK({self.author}, {self.round}, {self.digest()}, {data})'
+        data = self.payload[0]
+        return f'BK(Node{self.author}, {self.round}, {self.qc}, {data})'
 
     def digest(self):
-        return f'H({self.author}||{self.round})'
+        return f'{self.author}||{self.round}'
 
 
 # --- Votes ---
@@ -47,7 +46,7 @@ class Vote(GenericVote):
         return self.signature and self.author in network.nodes.keys()
 
     def __repr__(self):
-        return f'V({self.author}, {self.block_hash})'
+        return f'V(Node{self.author}, {self.block_hash})'
 
 
 class NewView(GenericVote):
@@ -63,11 +62,11 @@ class NewView(GenericVote):
     def verify(self, network):
         check = self.signature
         check &= self.author in network.nodes.keys()
-        check &= self.qc.verify()
+        check &= self.qc.verify(network)
         return check
 
     def __repr__(self):
-        return f'NV({self.author}, {self.round}, {self.qc})'
+        return f'NV(Node{self.author}, {self.round}, {self.qc})'
 
 
 # --- QCs ---
@@ -80,13 +79,14 @@ class GenericQC(Message):
 
 class QC(GenericQC):
     def __init__(self, votes):
+        assert votes
         self.votes = votes
 
     def size(self):
         return 32
 
     def verify(self, network):
-        check = all(x.verify() for x in self.votes)
+        check = all(x.verify(network) for x in self.votes)
         check &= len({x.block_hash for x in self.votes}) == 1
         check &= len(self.votes) >= network.quorum
         return check
@@ -96,7 +96,7 @@ class QC(GenericQC):
         return storage.blocks[block_hash]
 
     def __repr__(self):
-        return f'QC({self.votes[0].block_hash})'
+        return f'QC({next(iter(self.votes)).block_hash})'
 
 
 class AggQC(GenericQC):
@@ -107,7 +107,7 @@ class AggQC(GenericQC):
         return sum(x.size() for x in self.new_views)
 
     def verify(self, network):
-        check = all(x.verify() for x in self.new_views)
+        check = all(x.verify(network) for x in self.new_views)
         check &= len(self.new_views) >= network.quorum
         return check
 
@@ -115,7 +115,7 @@ class AggQC(GenericQC):
         qcs = [x.qc for x in self.new_views]
         blocks = [x.block(storage) for x in qcs]
         rounds = [x.round for x in blocks]
-        return blocks.index(max(rounds))
+        return blocks[rounds.index(max(rounds))]
 
     def __repr__(self):
-        return f'AggQC(..)'
+        return f'AggQC({[x.qc for x in self.new_views]})'

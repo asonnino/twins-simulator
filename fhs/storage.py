@@ -18,13 +18,14 @@ class SyncStorage():
         )
 
     @staticmethod
-    def make_genesis(network):
-        b0 = Block('Genesis', 0, None)
-        qc0 = QC({Vote(b0.digest(), x) for x in network.nodes.keys()})
-        b1 = Block(qc0, 1, None)
-        qc1 = QC({Vote(b1.digest(), x) for x in network.nodes.keys()})
-        b2 = Block(qc1, 2, None)
-        qc2 = QC({Vote(b2.digest(), x) for x in network.nodes.keys()})
+    def make_genesis():
+        authors = [0, 1, 2, 3]
+        b0 = Block('Genesis', 0, authors[0])
+        qc0 = QC({Vote(b0.digest(), x) for x in authors})
+        b1 = Block(qc0, 1, authors[1])
+        qc1 = QC({Vote(b1.digest(), x) for x in authors})
+        b2 = Block(qc1, 2, authors[2])
+        qc2 = QC({Vote(b2.digest(), x) for x in authors})
         return b0, qc0, b1, qc1, b2, qc2
 
     def add_block(self, block):
@@ -39,13 +40,14 @@ class NodeStorage():
         self.node = node
         self.committed = []
         self.votes = defaultdict(set)
-        self.new_views = {}
+        self.new_views = defaultdict(set)
 
     def __repr__(self):
         return (
-            f'NodeStorage content ({self.node} at round {self.node.view}):\n'
+            f'NodeStorage content ({self.node} at round {self.node.round}):\n'
             f'\tVotes({len(self.votes)}): {self.votes}\n'
             f'\tNewViews({len(self.new_views)}): {self.new_views}\n'
+            f'\tCommitted({len(self.committed)}): {self.committed}\n'
         )
 
     def add_vote(self, message):
@@ -62,6 +64,11 @@ class NodeStorage():
 
         else:
             assert False  # pragma: no cover
+
+    def commit(self, block):
+        # TODO: Should we also commit all ancestors?
+        if not block in self.committed:
+            self.committed += [block]
 
     def _can_make_qc(self, collection, key, value):
         before = len(collection[key]) >= self.node.network.quorum
