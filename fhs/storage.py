@@ -4,24 +4,17 @@ from fhs.messages import Block, Vote, NewView, QC, AggQC
 from collections import defaultdict
 
 
-class NodeStorage():
-    """ The node storage instance. """
-
-    def __init__(self, node):
-        self.node = node
-        genesis = NodeStorage.make_genesis(self.node.network)
+class SyncStorage():
+    """ A global store for all nodes simulating sync requests. """
+    
+    def __init__(self, genesis):
         b0, _, b1, _, b2, _ = genesis
         self.blocks = {x.digest(): x for x in [b0, b1, b2]}
-        self.committed = []
-        self.votes = defaultdict(set)
-        self.new_views = {}
-        
-    def __repr__(self):
+
+     def __repr__(self):
         return (
-            f'Storage content ({self.node} at round {self.node.view}):\n'
+            f'SyncStorage content:\n'
             f'\tBlocks({len(self.blocks)}): {self.blocks}\n'
-            f'\tVotes({len(self.votes)}): {self.votes}\n'
-            f'\tNewViews({len(self.new_views)}): {self.new_views}\n'
         )
 
     @staticmethod
@@ -35,9 +28,28 @@ class NodeStorage():
         return b0, qc0, b1, qc1, b2, qc2
 
     def add_block(self, block):
+        """ Adds a block to the storage. """
         self.blocks[block.digest()] = block
 
+
+class NodeStorage():
+    """ The node storage: each node gets its own. """
+
+    def __init__(self, node):
+        self.node = node
+        self.committed = []
+        self.votes = defaultdict(set)
+        self.new_views = {}
+
+    def __repr__(self):
+        return (
+            f'NodeStorage content ({self.node} at round {self.node.view}):\n'
+            f'\tVotes({len(self.votes)}): {self.votes}\n'
+            f'\tNewViews({len(self.new_views)}): {self.new_views}\n'
+        )
+
     def add_vote(self, message):
+        """ Adds a vote (either a Vote or a NewView) to the storage. """
         if isinstance(message, Vote):
             digest = message.block_hash
             votes = self._can_make_qc(self.votes, digest, message)
@@ -50,7 +62,7 @@ class NodeStorage():
 
         else:
             assert False  # pragma: no cover
-        
+
     def _can_make_qc(self, collection, key, value):
         before = len(collection[key]) >= self.node.network.quorum
         collection[key].add(value)

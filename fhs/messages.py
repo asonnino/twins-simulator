@@ -13,7 +13,7 @@ class Block(Message):
         return self.qc.size() + 64 + 32 + len(self.payload) + 64
 
     def verify(self, network):
-        check = self.signature 
+        check = self.signature
         check &= self.author in network.nodes.keys()
         check &= self.qc.verify()
         return check
@@ -58,10 +58,10 @@ class NewView(GenericVote):
         self.signature = True
 
     def size(self):
-        return  self.qc.size() + 64 + 32 + 64
+        return self.qc.size() + 64 + 32 + 64
 
     def verify(self, network):
-        check = self.signature 
+        check = self.signature
         check &= self.author in network.nodes.keys()
         check &= self.qc.verify()
         return check
@@ -119,4 +119,3 @@ class AggQC(GenericQC):
 
     def __repr__(self):
         return f'AggQC(..)'
-
