@@ -19,6 +19,7 @@ def common_sequence(network):
         common = inter if len(inter) > len(common) else common
     return common
 
+
 def print_out(network):
     network.print_trace()
     print()
@@ -52,4 +53,3 @@ def test_noisy(network_and_environement):
     network.run(until=100)
     print_out(network)
     assert len(common_sequence(network)) > 1
-
