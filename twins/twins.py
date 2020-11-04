@@ -17,7 +17,7 @@ class TwinsNetwork(Network):
     def send(self, fromx, tox, message):
         if str(fromx.round) in self.round_partitions:
             partitions = self.round_partitions[str(fromx.round)]
-            if any(tox.index in p and fromx.index in p for p in partitions):
+            if any(tox.name in p and fromx.name in p for p in partitions):
                 self.env.process(self._send(fromx, tox, message))
 
 

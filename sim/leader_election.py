@@ -10,6 +10,6 @@ class LeaderElection:
 class RoundRobinLE(LeaderElection):
     def get_leader(self, round=None):
         nodes = list(self.network.nodes.values())
-        nodes.sort(key=lambda n: n.index)
+        nodes.sort(key=lambda n: n.name)
         round = self.node.round if round is None else round
-        return [nodes[round % len(nodes)].index]
+        return [nodes[round % len(nodes)].name]

@@ -15,17 +15,17 @@ def genesis():
 
 @pytest.fixture
 def block(genesis):
-    return Block('Node0', 1, genesis)
+    return Block(0, 1, genesis)
 
 
 @pytest.fixture
 def vote(block):
-    return Vote('Node0', block)
+    return Vote(0, block)
 
 
 @pytest.fixture
 def three_votes(block):
-    return [Vote(f'Node{i}', block) for i in range(3)]
+    return [Vote(i, block) for i in range(3)]
 
 
 @pytest.fixture

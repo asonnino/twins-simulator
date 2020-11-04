@@ -4,9 +4,8 @@ from sim.leader_election import RoundRobinLE
 
 
 class Node():
-    def __init__(self, index, network):
-        self.index = index
-        self.name = f'Node{index}'
+    def __init__(self, name, network):
+        self.name = name
         self.network = network
         self.round = 0
         self.log = Logger()
@@ -14,7 +13,7 @@ class Node():
         self.storage = dict()
 
     def __repr__(self):
-        return f'<{self.name}>'
+        return f'Node{self.name}'
 
     def set_le(self, le):
         self.le = le

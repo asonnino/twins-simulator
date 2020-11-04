@@ -6,12 +6,12 @@ from collections import defaultdict
 
 class SyncStorage():
     """ A global store for all nodes simulating sync requests. """
-    
+
     def __init__(self, genesis):
         b0, _, b1, _, b2, _ = genesis
         self.blocks = {x.digest(): x for x in [b0, b1, b2]}
 
-     def __repr__(self):
+    def __repr__(self):
         return (
             f'SyncStorage content:\n'
             f'\tBlocks({len(self.blocks)}): {self.blocks}\n'

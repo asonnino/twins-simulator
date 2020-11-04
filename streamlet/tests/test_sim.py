@@ -21,7 +21,7 @@ def highest_common_round(network):
 
 def print_out(network):
     network.print_trace()
-    network.nodes['Node3'].log.print_out()
+    network.nodes[3].log.print_out()
     [print(n.storage) for n in network.nodes.values()]
     print(f'\nHigest common round: {highest_common_round(network)}\n')
 
@@ -30,22 +30,22 @@ def print_out(network):
 
 
 def test_happy(network_and_environement):
-    network, env = network_and_environement
+    network, _ = network_and_environement
     network.run()
     print_out(network)
     assert highest_common_round(network) > 0
 
 
 def test_dead_node(network_and_environement):
-    network, env = network_and_environement
-    network.nodes['Node0'] = DeadNode(0, network)
+    network, _ = network_and_environement
+    network.nodes[0] = DeadNode(0, network)
     network.run()
     print_out(network)
     assert highest_common_round(network) > 0
 
 
 def test_noisy(network_and_environement):
-    network, env = network_and_environement
+    network, _ = network_and_environement
     network.model = NoisyModel()
     network.run()
     print_out(network)

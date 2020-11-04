@@ -4,8 +4,8 @@ from streamlet.storage import NodeStorage
 
 
 class StreamletNode(Node):
-    def __init__(self, index, network):
-        super().__init__(index, network)
+    def __init__(self, name, network):
+        super().__init__(name, network)
         self.storage = NodeStorage(self)
 
     def receive(self, message):
@@ -25,7 +25,6 @@ class StreamletNode(Node):
                     self.storage.add_block(message)
 
                     # 2. Decide whether to vote on the block.
-                    chains = self.storage.get_longest_chains()
                     tips = [c[0] for c in self.storage.get_longest_chains()]
                     hash_tips = [hash(b) for b in tips]
                     if message.link in hash_tips:
@@ -50,7 +49,7 @@ class StreamletNode(Node):
             self.round += 1
             self.log(f'Move to round {self.round}.')
 
-            if self.index in self.le.get_leader():
+            if self.name in self.le.get_leader():
                 self.log('I am the leader.')
                 chain = self.storage.get_longest_chains()[0]
                 tip = chain[0]

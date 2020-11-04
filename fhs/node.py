@@ -3,15 +3,12 @@ from sim.network import BColors
 from fhs.messages import Message, Block, GenericVote, Vote, NewView
 from fhs.storage import NodeStorage, SyncStorage
 
-# TODO: Fix nodes to use indeces instead of names.
-# And rename index -> name.
-
 
 class FHSNode(Node):
     DELAY = 10  # Max delay before timeout.
 
-    def __init__(self, index, network, sync_storage):
-        super().__init__(index, network)
+    def __init__(self, name, network, sync_storage):
+        super().__init__(name, network)
         self.timeout = self.DELAY
         self.round = 2
         self.last_voted_round = 2
@@ -28,6 +25,7 @@ class FHSNode(Node):
 
     def receive(self, message):
         """ Handles incoming messages. """
+
         if not isinstance(message, Message):
             assert False  # pragma: no cover
 
@@ -75,7 +73,7 @@ class FHSNode(Node):
             if check:
                 self.timeout = self.DELAY
                 self.last_voted_round = message.round
-                vote = Vote(message.digest(), self.index)
+                vote = Vote(message.digest(), self.name)
                 next_leader_idx = self.le.get_leader(round=self.round+1)
                 next_leader = self.network.nodes[next_leader_idx]
                 self.network.send(self, next_leader, vote)
@@ -84,7 +82,7 @@ class FHSNode(Node):
         elif isinstance(message, GenericVote):
             qc = self.node_storage.add_vote(message)
             if qc is not None:
-                block = Block(qc, self.round+1, self.index)
+                block = Block(qc, self.round+1, self.name)
                 self.network.broadcast(self, block)
 
         else:
@@ -94,8 +92,8 @@ class FHSNode(Node):
         """ Main loop triggering timeouts. """
 
         # Send the very first block.
-        if self.index in self.le.get_leader():
-            block = Block(self.highest_qc, self.round+1, self.index)
+        if self.name in self.le.get_leader():
+            block = Block(self.highest_qc, self.round+1, self.name)
             self.network.broadcast(self, block)
 
         # Trigger timeouts when necessary.
@@ -104,7 +102,7 @@ class FHSNode(Node):
             self.timeout -= 1
             if self.timeout == 0:
                 self.timeout = self.DELAY
-                vote = NewView(self.highest_qc, self.round, self.index)
+                vote = NewView(self.highest_qc, self.round, self.name)
                 next_leader_idx = self.le.get_leader(round=self.round+1)
                 next_leader = self.network.nodes[next_leader_idx]
                 self.network.send(self, next_leader, vote)
