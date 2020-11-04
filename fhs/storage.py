@@ -14,7 +14,7 @@ class SyncStorage():
     def __repr__(self):
         return (
             f'SyncStorage content:\n'
-            f'\tBlocks({len(self.blocks)}): {self.blocks}\n'
+            f'\tBlocks({len(self.blocks)}): {self.blocks}'
         )
 
     @staticmethod
@@ -38,7 +38,7 @@ class NodeStorage():
 
     def __init__(self, node):
         self.node = node
-        self.committed = []
+        self.committed = set()
         self.votes = defaultdict(set)
         self.new_views = defaultdict(set)
 
@@ -47,7 +47,7 @@ class NodeStorage():
             f'NodeStorage content ({self.node} at round {self.node.round}):\n'
             f'\tVotes({len(self.votes)}): {self.votes}\n'
             f'\tNewViews({len(self.new_views)}): {self.new_views}\n'
-            f'\tCommitted({len(self.committed)}): {self.committed}\n'
+            f'\tCommitted({len(self.committed)}): {self.committed}'
         )
 
     def add_vote(self, message):
@@ -67,8 +67,7 @@ class NodeStorage():
 
     def commit(self, block):
         # TODO: Should we also commit all ancestors?
-        if not block in self.committed:
-            self.committed += [block]
+        self.committed.add(block)
 
     def _can_make_qc(self, collection, key, value):
         before = len(collection[key]) >= self.node.network.quorum

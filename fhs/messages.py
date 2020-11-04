@@ -74,7 +74,7 @@ class NewView(GenericVote):
 
 class GenericQC(Message):
     def block(self, storage):
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
 
 class QC(GenericQC):

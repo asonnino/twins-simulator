@@ -5,7 +5,7 @@ from fhs.storage import NodeStorage, SyncStorage
 
 
 class FHSNode(Node):
-    DELAY = 15  # Max delay before timeout.
+    DELAY = 15  # Delay before timeout.
 
     def __init__(self, name, network, sync_storage):
         super().__init__(name, network)
@@ -26,15 +26,8 @@ class FHSNode(Node):
     def receive(self, message):
         """ Handles incoming messages. """
 
-        if not isinstance(message, Message):
+        if not (isinstance(message, Message) and message.verify(self.network)):
             assert False  # pragma: no cover
-
-        if not message.verify(self.network):
-            self.log(
-                f'Received invalid message: {message}',
-                color=BColors.WARNING
-            )
-            return
 
         # Handle incoming blocks.
         # Block message contains the previous QC: we handle separatly
