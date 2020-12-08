@@ -64,7 +64,7 @@ class TwinsRunner:
         [network.add_node(n) for n in nodes]
 
         logging.debug(f'3/3 Executing scenario ({len(round_leaders)} rounds).')
-        network.run()
+        network.run(until=150)
         return network
 
     def _print_log(self, file_path, scenario, network):
