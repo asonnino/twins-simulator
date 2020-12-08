@@ -26,8 +26,9 @@ class TwinsLE(LeaderElection):
         super().__init__(node, network)
         self.round_leaders = round_leaders
 
-    def get_leader(self):
-        if str(self.node.round) in self.round_leaders:
-            return self.round_leaders[str(self.node.round)]
+    def get_leader(self, round=None):
+        round = self.node.round if round is None else round
+        if str(round) in self.round_leaders:
+            return self.round_leaders[str(round)]
         else:
             return []
