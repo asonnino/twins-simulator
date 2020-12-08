@@ -7,8 +7,8 @@ from collections import defaultdict
 class SyncStorage():
     """ A global store for all nodes simulating sync requests. """
 
-    def __init__(self, genesis):
-        b0, _, b1, _, b2, _ = genesis
+    def __init__(self):
+        b0, _, b1, _, b2, _ = self.make_genesis()
         self.blocks = {x.digest(): x for x in [b0, b1, b2]}
 
     def __repr__(self):
@@ -17,8 +17,7 @@ class SyncStorage():
             f'\tBlocks({len(self.blocks)}): {self.blocks}'
         )
 
-    @staticmethod
-    def make_genesis():
+    def make_genesis(self):
         authors = [0, 1, 2, 3]
         b0 = Block('Genesis', 0, authors[0])
         qc0 = QC({Vote(b0.digest(), x) for x in authors})

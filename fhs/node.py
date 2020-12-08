@@ -14,7 +14,7 @@ class FHSNode(Node):
         self.last_voted_round = 2
         self.preferred_round = 1
 
-        qc2 = SyncStorage.make_genesis()[-1]
+        qc2 = sync_storage.make_genesis()[-1]
         self.highest_qc, self.highest_qc_round = qc2, 2
 
         # Block store (global for all nodes).

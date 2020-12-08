@@ -10,9 +10,7 @@ import simpy
 def network_and_environement():
     env = simpy.Environment()
     network = Network(env, SimpleModel())
-
-    genesis = SyncStorage.make_genesis()
-    sync_storage = SyncStorage(genesis)
-    nodes = [FHSNode(i, network, sync_storage) for i in range(4)]
+    global_store = SyncStorage()
+    nodes = [FHSNode(i, network, global_store) for i in range(4)]
     [network.add_node(n) for n in nodes]
     return network, env

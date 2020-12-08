@@ -1,23 +1,27 @@
 import sys
+sys.path += '../fhs'
 sys.path += '../streamlet'
 sys.path += '../twins'
+sys.path += '../sim'
 
-from streamlet.node import StreamletNode
-from sim.network import SimpleModel
-from twins.twins import TwinsNetwork, TwinsLE
-
-import logging
-from json import load, dumps
-import simpy
-import argparse
 from os.path import join
+import argparse
+import simpy
+from json import load, dumps
+import logging
+from fhs.storage import SyncStorage
+from fhs.node import FHSNode
+from twins.twins import TwinsNetwork, TwinsLE
+from sim.network import SimpleModel
+from streamlet.node import StreamletNode
 
 
 class TwinsRunner:
-    def __init__(self, file_path, log_path=None, NodeClass=StreamletNode):
+    def __init__(self, file_path, NodeClass, node_args, log_path=None):
         self.file_path = file_path
         self.log_path = log_path
         self.NodeClass = NodeClass
+        self.node_args = node_args
 
         with open(file_path) as f:
             data = load(f)
@@ -51,7 +55,8 @@ class TwinsRunner:
         model = SimpleModel()
         network = TwinsNetwork(env, model, round_partitions, self.num_of_twins)
 
-        nodes = [self.NodeClass(i, network) for i in range(self.num_of_nodes)]
+        nodes = [self.NodeClass(i, network, *self.node_args)
+                 for i in range(self.num_of_nodes)]
         [n.set_le(TwinsLE(n, network, round_leaders)) for n in nodes]
         [network.add_node(n) for n in nodes]
 
@@ -80,7 +85,7 @@ class TwinsRunner:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Twins Executor.')
     parser.add_argument('path', help='path to the scenario file')
-    parser.add_argument('--log', help='output log directoru')
+    parser.add_argument('--log', help='output log directory')
     parser.add_argument('-v', action='store_true', help='verbose logging')
     args = parser.parse_args()
 
@@ -89,5 +94,7 @@ if __name__ == '__main__':
         format='[%(levelname)s] %(message)s'
     )
 
-    runner = TwinsRunner(args.path, log_path=args.log)
+    sync_storage = SyncStorage()
+    runner = TwinsRunner(args.path, FHSNode, [sync_storage], log_path=args.log)
+    #runner = TwinsRunner(args.path, StreamletNode, [], log_path=args.log)
     runner.run()
