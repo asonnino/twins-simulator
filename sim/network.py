@@ -86,3 +86,8 @@ class NoisyModel(SimpleModel):
     def __init__(self):
         super().__init__()
         self.gamma_k, self.gamma_theta = 1, 4
+
+
+class SyncModel:
+    def delay(self, fromx, tox, message):
+        return 1

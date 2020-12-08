@@ -12,7 +12,7 @@ import logging
 from fhs.storage import SyncStorage
 from fhs.node import FHSNode
 from twins.twins import TwinsNetwork, TwinsLE
-from sim.network import SimpleModel
+from sim.network import SyncModel
 from streamlet.node import StreamletNode
 
 
@@ -49,11 +49,14 @@ class TwinsRunner:
         logging.debug('1/3 Reading scenario.')
         round_leaders = scenario['round_leaders']
         round_partitions = scenario['round_partitions']
+        firewall = scenario['firewall'] if 'firewall' in scenario else {}
 
         logging.debug('2/3 Setting up network.')
         env = simpy.Environment()
-        model = SimpleModel()
-        network = TwinsNetwork(env, model, round_partitions, self.num_of_twins)
+        model = SyncModel()
+        network = TwinsNetwork(
+            env, model, round_partitions, firewall, self.num_of_twins
+        )
 
         nodes = [self.NodeClass(i, network, *self.node_args)
                  for i in range(self.num_of_nodes)]
@@ -74,7 +77,7 @@ class TwinsRunner:
         data += [f'{t}\n' for t in network.trace] + ['\n']
 
         for n in network.nodes.values():
-            data += [f'\n\n{n.name} logs:\n']
+            data += [f'\n\nNode{n.name} logs:\n']
             data += [f'{t}\n' for t in n.log.log]
             data += [f'\n{n.storage.__repr__()}']
 
