@@ -6,7 +6,7 @@ This repository is dedicated to sharing material related to the Twins Simulator.
 ## Summary
 Twins is a new approach for testing BFT systems. The main idea of Twins is that we can emulate Byzantine behavior by running two (or generally up to k) instances of a node with the same identity. Each of the two instances (or Twins) runs unmodified, correct code. The Twins approach requires only a thin network wrapper that delivers messages to/from both Twins.
 
-This repo provides software to execute Twins scenarios on a simulation of the [Streamlet consensus protocol](https://eprint.iacr.org/2020/088.pdf).
+This repo provides software to execute Twins scenarios on a simulation of the [Streamlet consensus protocol](https://eprint.iacr.org/2020/088.pdf) and [Fast-HotStuff](https://arxiv.org/abs/2010.11454).
 
 ## Install
 It is advised to first create a virtual environment:
