@@ -1,14 +1,7 @@
-<a href="https://novi.com/">
-	<img width="100" src=".assets/novi.png" alt="Novi Logo" />
-</a>
-
-<hr/>
-
-
 # Twins Simulator
 [![License](https://img.shields.io/badge/license-Apache-green.svg)](LICENSE.md)
 
-This repository is dedicated to sharing material related to the Twins Simulator, developed at Novi Financial (formerly Calibra). Software is provided for research-purpose only and is not meant to be used in production.
+This repository is dedicated to sharing material related to the Twins Simulator. Software is provided for research-purpose only and is not meant to be used in production.
 
 ## Summary
 Twins is a new approach for testing BFT systems. The main idea of Twins is that we can emulate Byzantine behavior by running two (or generally up to k) instances of a node with the same identity. Each of the two instances (or Twins) runs unmodified, correct code. The Twins approach requires only a thin network wrapper that delivers messages to/from both Twins.
